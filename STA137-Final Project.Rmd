@@ -1,0 +1,233 @@
+---
+title: "STA137-Final Project"
+author: "Johnson Tian"
+date: "2024-06-6"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+finalPro_data <- read.csv("~/finalPro_data.csv")
+library(tidyverse)
+library(tsibble)
+library(dplyr)
+library(forecast)
+library(feasts)
+library(ggplot2)
+library(gridExtra)
+library(forecast)
+library(tseries)
+library(MuMIn)
+```
+
+```{r}
+# GDP v.s. Year Plot
+ggplot(finalPro_data, aes(x = Year, y = GDP)) +
+  geom_line(color = "blue") +
+  labs(title = "CAF's GDP plot over Year", x = "Year", y = "GDP") +
+  scale_x_continuous(breaks = seq(min(finalPro_data$Year), max(finalPro_data$Year), by = 5)) +
+  theme_minimal()
+
+# Economic Growth v.s Year Plot
+ggplot(finalPro_data, aes(x = Year, y = Growth)) +
+  geom_line(color = "green") +
+  labs(title = "CAF's Economic Growth plot over Year", x = "Year", y = "Growth Rate") +
+  scale_x_continuous(breaks = seq(min(finalPro_data$Year), max(finalPro_data$Year), by = 5)) +
+  theme_minimal()
+```
+
+
+
+```{r}
+# Create the time series object
+tts_fp <- ts(finalPro_data$Exports, start = min(finalPro_data$Year), end = max(finalPro_data$Year), frequency = 1)
+
+# Plot the time series
+plot(tts_fp, main = "Central African Republic Exports (1960-2017)", xlab = "Year", ylab = "Exports", xaxt = "n")
+years <- seq(start(tts_fp)[1], end(tts_fp)[1], by = 2)
+axis(1, at = years, labels = years)
+
+#ACF&PACF
+ggtsdisplay(tts_fp, plot.type = "partial")
+
+```
+
+
+```{r}
+#ADF test
+adf_test <- adf.test(tts_fp)
+print(adf_test)
+
+#KPSS test
+kpss_test <- kpss.test(tts_fp)
+print(kpss_test)
+
+acf(tts_fp, main = "ACF of Exports")
+pacf(tts_fp, main = "PACF of Exports")
+
+```
+
+
+```{r}
+# best lamda
+lambda <- BoxCox.lambda(tts_fp)
+
+# Box-Cox Transform
+tts_fp_boxcox <- BoxCox(tts_fp, lambda)
+# log Transform
+tts_fp_log <- log(tts_fp)
+plot(tts_fp_boxcox, main = "BoxCox Transform of Central African Republic Exports (1960-2017)", xlab = "Year", ylab = "Exports")
+plot(tts_fp_log, main = "Log Transform Central African Republic Exports (1960-2017)", xlab = "Year", ylab = "Exports")
+
+
+adf_test_tts_fp_boxcox <- adf.test(tts_fp_boxcox)
+print(adf_test_tts_fp_boxcox)
+kpss_test_tts_fp_boxcox <- kpss.test(tts_fp_boxcox)
+print(kpss_test_tts_fp_boxcox)
+
+adf_test_tts_fp_log <- adf.test(tts_fp_log)
+print(adf_test_tts_fp_log)
+kpss_test_tts_fp_log <- kpss.test(tts_fp_log)
+print(kpss_test_tts_fp_log)
+
+```
+
+
+```{r}
+
+# First Order Differencing
+diff_tts_fp <- diff(tts_fp)
+
+# Plot First Order Differenced Time Series
+plot(diff_tts_fp, main = "First Order Differenced Central African Republic Exports Time Series", ylab = "Differenced(Exports)", xlab = "Year")
+
+# If higher order differencing is needed, such as second order differencing
+diff2_tts_fp <- diff(diff_tts_fp)
+
+# Plot Second Order Differenced Time Series
+plot(diff2_tts_fp, main = "Second Order Differenced Central African Republic Exports Time Series", ylab = "Second Order Differenced(Exports)", xlab = "Year")
+
+
+acf_plot_diff <- ggAcf(diff_tts_fp, main = "ACF of First Differenced Series")
+pacf_plot_diff <- ggPacf(diff_tts_fp, main = "PACF of First Differenced Series")
+
+adf_test_diff_tts_fpx <- adf.test(diff_tts_fp)
+print(adf_test_diff_tts_fpx)
+kpss_test_diff_tts_fp <- kpss.test(diff_tts_fp)
+print(kpss_test_diff_tts_fp)
+
+diff2_tts_fp <- diff(tts_fp, differences = 2)
+
+
+adf_test_diff2_tts_fpx <- adf.test(diff2_tts_fp)
+print(adf_test_diff2_tts_fpx)
+kpss_test_diff2_tts_fp <- kpss.test(diff2_tts_fp)
+print(kpss_test_diff2_tts_fp)
+
+```
+
+```{r}
+acf_plot_diff <- ggAcf(diff_tts_fp) + ggtitle("ACF of First Differenced Series")
+pacf_plot_diff <- ggPacf(diff_tts_fp) + ggtitle("PACF of First Differenced Series")
+
+
+grid.arrange(acf_plot_diff, pacf_plot_diff, ncol = 2)
+
+diff2_tts_fp <- diff(tts_fp, differences = 2)
+
+acf_plot_diff2 <- ggAcf(diff2_tts_fp) + ggtitle("ACF of Second Differenced Series")
+pacf_plot_diff2 <- ggPacf(diff2_tts_fp) + ggtitle("PACF of Second Differenced Series")
+
+grid.arrange(acf_plot_diff2, pacf_plot_diff2, ncol = 2)
+
+
+```
+
+
+
+```{r}
+# Select ARIMA parameter 
+arima_2_2_0 <- Arima(tts_fp, order = c(2, 2, 0))
+arima_0_2_2 <- Arima(tts_fp, order = c(0, 2, 2))
+arima_2_2_2 <- Arima(tts_fp, order = c(2, 2, 2))
+arima_2_1_0 <- Arima(tts_fp, order = c(2, 1, 0))
+arima_0_1_3 <- Arima(tts_fp, order = c(0, 1, 3))
+arima_1_1_1 <- Arima(tts_fp, order = c(1, 1, 1))
+
+# auto select
+auto_arima_model <- auto.arima(tts_fp)
+auto_arima_model_stepwise <- auto.arima(tts_fp, stepwise = TRUE, trace = TRUE)
+
+models <- list(arima_2_2_0, arima_0_2_2, arima_2_2_2, arima_2_1_0, arima_0_1_3, arima_1_1_1, auto_arima_model, auto_arima_model_stepwise)
+model_names <- c("ARIMA(2,2,0)", "ARIMA(0,2,2)", "ARIMA(2,2,2)", "ARIMA(2,1,0)", "ARIMA(0,1,3)", "ARIMA(1,1,1)", "AUTO ARIMA", "STEPWISE AUTO ARIMA")
+
+results <- data.frame(
+  Model = model_names,
+  AICc = sapply(models, AICc)
+)
+
+head(results)
+
+write.csv(results, file = "results_final.csv", row.names = FALSE)
+
+# select top less 4 aicc models
+top_models <- results[order(results$AICc)[1:3], "Model"]
+top_models_list <- models[match(top_models, model_names)]
+
+#check roots available 
+print (top_models_list)
+for (i in 1:3) {
+  cat("Roots of characteristic polynomial for model:", top_models[i], "\n")
+  print(autoplot(top_models_list[[i]]))
+  cat("\n\n")
+}
+```
+
+
+```{r}
+
+top_models <- results[order(results$AICc)[1:4], "Model"]
+top_models_list <- models[match(top_models, model_names)]
+
+for (i in 1:3) {
+  cat("Summary of model:", top_models[i], "\n")
+  print(summary(top_models_list[[i]]))
+  
+  checkresiduals(top_models_list[[i]])
+  
+  autoplot(top_models_list[[i]])
+  cat("\n\n")
+}
+
+```
+
+
+```{r}
+#forecasting for next 10 years
+forecast_horizon <- 10
+forecast_result <- forecast(arima_2_1_0, h = forecast_horizon)
+
+print(forecast_result)
+
+autoplot(forecast_result) +
+  ggtitle("Forecasted Exports arima_2_1_0") +
+  xlab("Year") +
+  ylab("Exports")
+
+
+```
+
+
+
+```{r}
+tts_fp <- ts(finalPro_data$Exports, start = min(finalPro_data$Year), frequency = 2)
+print(tts_fp)
+
+decomposed_ts <- decompose(tts_fp)
+print(decomposed_ts)
+
+autoplot(decomposed_ts) +
+  ggtitle("Decomposition of Time Series") +
+  xlab("Year") +
+  ylab("Exports")
+
+```
